@@ -1,26 +1,17 @@
-from key_manager import KeyManager
-from encrypt import rsa, aes, hash_md5, hash_sha256
-from base64 import urlsafe_b64encode, urlsafe_b64decode
-
-import tarfile
-
-from google_drive import GoogleDrive
-
 import os
-
 import time
-
 import ujson as json
-
-from timer_decorator import timer
- 
 import secrets
 
-import datetime
-
+from base64 import urlsafe_b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from colorama import Fore, Style
+from key_manager import KeyManager
+from encrypt import rsa, aes, hash_md5, hash_sha256
+from google_drive import GoogleDrive
+
+KEY_DELIMITER = 'RljUoVUFjfAFkfSEg61sWpcdnipjJe5vFwiVNTF75Nc'
+
 
 class Drive:
     def __init__(
@@ -281,9 +272,9 @@ class Drive:
             self.p.local.write_file('.archiveinfo/chat.json', json.dumps(messages).encode())
 
         def refresh(self, force_download:bool=False):
+            self.p.remote.map_structure()
             messages = self.messages
 
-            KEY_DELIMITER = 'Archive key: '
 
             for user in self.p.users:
                 message_dir = self.p.remote.get_dir(f'archiveinfo/users/{self.p.username}/messages/{user}')
@@ -335,31 +326,26 @@ class Drive:
         def messages(self):
             return json.loads(self.p.local.get_file_data('.archiveinfo/chat.json'))
     
-        def get_messages(self, user:str):
+        def get_messages(self, user:str) -> dict[str, dict[str, str]]:
             messages:dict[str, dict[str, str]] = self.messages.get(user, {})
-            key_delimiter = 'Archive key: '
+            updated_messages = {}
             for message_id, message in messages.items():
-                if message['content'].startswith(key_delimiter):
-                    self.p.km.set_key(f'archives/{self.p.id}', message['content'].removeprefix(key_delimiter).encode())
-            return messages
 
-        def print_chat(self, user:str):
-            messages = self.get_messages(user)
-            messages = dict(sorted(messages.items(), key=lambda x: x[1]['timestamp']))
+                if message['content'].startswith(KEY_DELIMITER):
+                    self.p.km.set_key(f'archives/{self.p.id}', message['content'].removeprefix(KEY_DELIMITER).encode())
+                    message['content'] = 'Drive Encryption Key: [REDACTED]'
+                
+                    if message['sender'] != self.p.username:
+                        updated_messages[secrets.token_urlsafe(24)] = {
+                            "timestamp": message['timestamp']+0.1,
+                            "content": "Archive key received.",
+                            "sender": 'System'
+                        }
 
-            for message_id, message in messages.items():
-                readable_time = datetime.datetime.fromtimestamp(message['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
-                sender = message['sender'].replace(self.p.username, 'You')
-                if sender == 'You':
-                    color = Fore.BLUE
-                elif sender == 'System':
-                    color = Fore.LIGHTBLACK_EX
-                else:
-                    color = Fore.GREEN
+                updated_messages[message_id] = message
 
-                content = message['content']
-                underscore = '\u203E'*max(len(message), len(f'{readable_time} {sender}'))
-                print(f"{Style.RESET_ALL}{Style.DIM}{readable_time} {color}{sender}\n{Style.NORMAL}{content}\n{Style.DIM}{underscore}{Style.RESET_ALL}")
+            return updated_messages
+
 
     @property
     def users(self):
@@ -369,7 +355,7 @@ class Drive:
         self.chat.send_message(user, "Requesting archive key.")
 
     def send_archive_key(self, user:str):
-        self.chat.send_message(user, self.km.get_key(f'archives/{self.id}').decode())
+        self.chat.send_message(user, 'Archive key: '+self.km.get_key(f'archives/{self.id}').decode())
 
     def hash_files(self) -> dict[str]:
         all_files = self.local.all_files
@@ -388,7 +374,6 @@ class Drive:
             return {}
 
     def update_remote_file_hashes(self, data_hashes:dict):
-        print(json.dumps(data_hashes, indent=2))
         self.remote.delete_file('archiveinfo/file_hashes.json')
         self.remote.create_file('archiveinfo/file_hashes.json', json.dumps(data_hashes).encode(), should_encrypt=True)
 
@@ -396,20 +381,26 @@ class Drive:
         return urlsafe_b64encode(hash_sha256(filename.encode()+self.salt)).decode()
 
     def pull(self):
-        local_data_hashes = self.hash_files()
+        self.remote.map_structure()
 
+        local_data_hashes = self.hash_files()
         remote_file_hashes = self.get_remote_file_hashes()
 
         for filename, data_hash in remote_file_hashes.items():
             if local_data_hashes.get(filename) != data_hash:
                 data = self.remote.get_file_data(f'files/{self._hash_filename(filename)}', is_encrypted=True)
                 self.local.write_file(filename, data)
+                print(f"File pulled: {filename}")
+
 
         for filename in local_data_hashes.keys():
             if filename not in remote_file_hashes.keys():
                 self.local.delete_file(filename)
+                print(f"File deleted: {filename}")
     
     def push(self):
+        self.remote.map_structure()
+
         local_data_hashes = self.hash_files()
         remote_file_hashes = self.get_remote_file_hashes()
 
@@ -430,16 +421,17 @@ class Drive:
         for future in as_completed(futures):
             name = futures[future]
             try:
-                future.result()  # This will raise exceptions if any occurred
-                print(f"File synced: {name}")
+                future.result()
+                print(f"File pushed: {name}")
             except Exception as e:
-                print(f"Error syncing {name}: {e}")
+                print(f"Error pushing file `{name}`: {e}")
 
 
         for name in remote_file_hashes:
             if not (name in local_data_hashes.keys()):
                 hashed_name = self._hash_filename(name)
                 self.remote.delete_file(f'files/{hashed_name}')
+                print(f"Remote file deleted: {name}")
 
         self.update_remote_file_hashes(local_data_hashes)
 

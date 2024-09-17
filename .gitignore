@@ -165,4 +165,6 @@ cython_debug/
 *.pem
 *.asc
 ceased_dev_local
-auth
+credentials.json
+token.json
+config.yaml

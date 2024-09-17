@@ -22,6 +22,8 @@ class GoogleDrive:
         self.creds = None
         self.auth()
 
+        os.mkdir("auth") if not os.path.exists("auth") else None
+
     def auth(self):
         if os.path.exists(self.token_path):
             self.creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
@@ -144,7 +146,6 @@ class GoogleDrive:
 
             file = service.files().create(body=file_metadata, fields="id").execute()
 
-            print(f'Folder created: {name}')
 
             return file.get("id")
 
@@ -156,7 +157,6 @@ class GoogleDrive:
         try:
             service = build("drive", "v3", credentials=self.creds)
             service.files().delete(fileId=file_id).execute()
-            print(f'File deleted: {file_id}')
         except HttpError as error:
             print(f"An error occurred: {error}")
             

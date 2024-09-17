@@ -9,4 +9,3 @@ def save_config(config:dict, path:str='config.yaml'):
     with open(path, 'w') as file:
         yaml.dump(config, file)
 
-DEFAULT_CONFIG = load_config('config.yaml')

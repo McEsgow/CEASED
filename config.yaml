@@ -1,7 +1,5 @@
 folders_to_sync:
-  Test drive:
-    local_path: ceased_dev_local
-    remote_folder_id: 
-
-key_folder: keys/
-username: Dev
+  test:
+    local_path: test
+    remote_folder_id: 1Ytw6wyi0J1BGEINyXlcfqMi8oS5fy3YK
+username: Eskil

@@ -9,7 +9,6 @@ import os
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 import hashlib
 
-from timer_decorator import timer
 
 class RSA:
     def __init__(self):
@@ -40,7 +39,6 @@ class RSA:
         return private_pem, public_pem
 
     @staticmethod
-    @timer
     def encrypt(plain_text:bytes, public_key):
         public_key = serialization.load_pem_public_key(public_key)
         encrypted = public_key.encrypt(
@@ -54,7 +52,6 @@ class RSA:
         return encrypted
 
     @staticmethod
-    @timer
     def decrypt(cipher_text:bytes, private_key):
         private_key = serialization.load_pem_private_key(private_key, password=None)
         decrypted = private_key.decrypt(
