@@ -332,7 +332,9 @@ class Drive:
             for message_id, message in messages.items():
 
                 if message['content'].startswith(KEY_DELIMITER):
-                    self.p.km.set_key(f'archives/{self.p.id}', message['content'].removeprefix(KEY_DELIMITER).encode())
+                    if not message['content'].removeprefix(KEY_DELIMITER) == '[REDACTED]':
+                        self.p.km.set_key(f'archives/{self.p.id}', message['content'].removeprefix(KEY_DELIMITER).encode())
+                    
                     message['content'] = 'Drive Encryption Key: [REDACTED]'
                 
                     if message['sender'] != self.p.username:
