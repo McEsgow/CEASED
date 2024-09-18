@@ -355,7 +355,7 @@ class Drive:
         self.chat.send_message(user, "Requesting archive key.")
 
     def send_archive_key(self, user:str):
-        self.chat.send_message(user, 'Archive key: '+self.km.get_key(f'archives/{self.id}').decode())
+        self.chat.send_message(user, {KEY_DELIMITER}+self.km.get_key(f'archives/{self.id}').decode())
 
     def hash_files(self) -> dict[str]:
         all_files = self.local.all_files

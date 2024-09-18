@@ -11,6 +11,11 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload, BatchHttpRe
 
 from google.auth.exceptions import RefreshError
 
+class CredentialsNotFoundError(Exception):
+    def __init__(self, path:str) -> None:
+        self.message = f"Credentials not found in {os.path.abspath(path)}"
+        super().__init__(self.message)
+
 class GoogleDrive:
     def __init__(self,
         creds_path:str="auth/credentials.json",
@@ -19,10 +24,15 @@ class GoogleDrive:
         self.SCOPES = ["https://www.googleapis.com/auth/drive"]
         self.creds_path = creds_path
         self.token_path = token_path
+        os.makedirs(os.path.dirname(creds_path), exist_ok=True)
+        os.makedirs(os.path.dirname(token_path), exist_ok=True)
+        if not os.path.exists(self.creds_path):
+            raise CredentialsNotFoundError(self.creds_path)
         self.creds = None
         self.auth()
 
-        os.mkdir("auth") if not os.path.exists("auth") else None
+
+
 
     def auth(self):
         if os.path.exists(self.token_path):

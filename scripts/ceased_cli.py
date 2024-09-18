@@ -7,19 +7,19 @@ from colorama import Fore, Style
 
 from encrypt import rsa
 from key_manager import KeyManager
-from google_drive import GoogleDrive
+from google_drive import GoogleDrive, CredentialsNotFoundError
 from sync import Drive
 from config_loader import load_config, save_config
 
 CEASED_TITLE = R"""
                        WELCOME TO
-   _____   ______               _____   ______   _____                                                                                 
-  / ____| |  ____|     /\      / ____| |  ____| |  __ \ 
+   _____   ______               _____   ______   _____
+  / ____| |  ____|     /\      / ____| |  ____| |  __ \
  | |      | |__       /  \    | (___   | |__    | |  | |
  | |      |  __|     / /\ \    \___ \  |  __|   | |  | |
  | |____  | |____   / ____ \   ____) | | |____  | |__| |
   \_____| |______| /_/    \_\ |_____/  |______| |_____/
-                                                            
+
    CEASED: CEASED: ENSURING A SECURELY ENCRYPTED DRIVE"""
 
 
@@ -58,7 +58,7 @@ def print_block(title:str, rows:list[str], block_width:int=None):
         return f"{prefix}{Style.RESET_ALL}{row}{Style.RESET_ALL}{suffix}\n"
 
     def remove_render_instructions(row:str):
-        return row.replace('$CENTERALIGNED$', '').replace('$RIGHTALIGNED$', '')
+        return row.replace('$CENTERALIGNED$', '').replace('$RIGHTALIGNED$', '').replace('$LEFTALIGNED$', '')
 
     block_text += make_center_aligned_row(Style.BRIGHT+title)
     block_text += make_center_aligned_row('')
@@ -112,10 +112,10 @@ class DriveMenu:
 
         if choice == '+':
             self.add_drive()
-            self.display()
+            return self.display()
         elif choice == '-':
             self.remove_drive()
-            self.display()
+            return self.display()
         elif choice == '':
             return None
         else:
@@ -275,14 +275,14 @@ class CLI:
         self.drive_label:str = None
         self.drive:Drive = None
 
-
-        try:
-            self.google_drive = GoogleDrive()
-        except FileNotFoundError:
-            while True:
-                print(f"{Fore.RED}Google Drive Credentials missing.{Style.RESET_ALL}")
+        while True:
+            try:
+                self.google_drive = GoogleDrive()
+                break
+            except CredentialsNotFoundError as e:
+                print(f"{datetime.datetime.fromtimestamp((time.time())).isoformat()}{Fore.RED} {e}{Style.RESET_ALL}")
                 time.sleep(1)
-        
+            
         self.key_manager = KeyManager('keys/')
 
         print(f"{Style.BRIGHT}{Fore.MAGENTA}{CEASED_TITLE}{Style.RESET_ALL}")
